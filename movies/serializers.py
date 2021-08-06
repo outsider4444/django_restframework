@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Movie, Review
+from .models import Movie, Review, Rating, Actor
 
 
 class RecursiveSerializer(serializers.Serializer):
@@ -15,11 +15,40 @@ class FilterReviewListSerializer(serializers.ListSerializer):
         return super().to_representation(data)
 
 
+class ActorListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Actor
+        fields = ("id", "name", "image")
+
+
+class ActorDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Actor
+        fields = "__all__"
+
+
 class MovieListSerializer(serializers.ModelSerializer):
+    """Список фильмов"""
+    rating_user = serializers.BooleanField()
+    middle_star = serializers.IntegerField()
 
     class Meta:
         model = Movie
-        fields = ("title", "tagline", "category")
+        fields = ("title", "tagline", "category", "rating_user", "middle_star")
+
+
+class CreateRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        fields = ("star", "movie")
+
+    def create(self, validated_data):
+        rating = Rating.objects.update_or_create(
+            ip=validated_data.get("ip", None),
+            movie=validated_data.get("movie", None),
+            defaults={'star': validated_data.get("star")}
+        )
+        return rating
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
@@ -41,8 +70,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class MovieDetailSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field="name", read_only=True)
-    directors = serializers.SlugRelatedField(slug_field="name", read_only=True, many=True)
-    actors = serializers.SlugRelatedField(slug_field="name", read_only=True, many=True)
+    directors = ActorDetailSerializer(read_only=True, many=True)
+    actors = ActorDetailSerializer(read_only=True, many=True)
     genres = serializers.SlugRelatedField(slug_field="name", read_only=True, many=True)
     reviews = ReviewCreateSerializer(many=True)
 
